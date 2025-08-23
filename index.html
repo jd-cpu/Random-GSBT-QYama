@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>유방갑상선외과 랜덤 질문야마 퀴즈</title>
+  <link rel="manifest" href="manifest.json?v=5">
+  <meta name="theme-color" content="#4CAF50">
+  <style>
+    body { font-family: Arial, sans-serif; max-width:800px; margin:20px auto; padding:16px; text-align:center; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    h1 { margin:0; font-size:1.25rem; }
+    #status { color:#666; font-size:0.95rem; margin-top:8px; text-align:left; }
+    .question { margin:20px 0; font-size:1.15rem; white-space:pre-line; text-align:left; }
+    .answer { margin-top:10px; font-weight:600; color:#0a6; white-space:pre-line; display:none; text-align:left; }
+    .controls { margin-top:18px; }
+    button { padding:10px 14px; margin:6px; font-size:1rem; }
+    .progress-wrap { margin-top:14px; text-align:left; }
+    .progress-info { font-size:0.92rem; color:#444; margin-bottom:6px; }
+    .progress-bar { width:100%; height:12px; background:#eee; border-radius:8px; overflow:hidden; }
+    .progress-inner { height:100%; width:0%; background:#4caf50; transition: width 0.25s ease; }
+    small.note { display:block; color:#888; margin-top:8px; text-align:left; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>유방갑상선외과 랜덤 질문야마 퀴즈</h1>
+    <div>
+      <button id="btnToggleMode">복습 모드로</button>
+      <button id="btnReset">초기화</button>
+    </div>
+  </header>
+
+  <div id="status" aria-live="polite">로딩 중...</div>
+
+  <div class="question" id="question">문제가 여기에 표시됩니다.</div>
+  <div class="answer" id="answer"></div>
+
+  <div class="controls" id="controls">
+    <button id="btnShowAnswer">정답 보기</button>
+    <button id="btnMarkWrong">오답 저장</button>
+    <button id="btnPrev">이전 문제</button>
+    <button id="btnNext">다음 문제</button>
+    <!-- 복습 모드에서 첫 문제로 돌아가기 버튼 -->
+    <button id="btnRestartReview" style="display:none;">복습 첫 문제로</button>
+    <!-- 복습 모드에서 오답 제거 버튼 -->
+    <button id="btnRemoveWrong" style="display:none;">오답 제거</button>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-info" id="progressInfo">진행: 0 / 0 (남음: 0)</div>
+    <div class="progress-bar"><div id="progressInner" class="progress-inner"></div></div>
+    <small class="note">※ 정답 보기 버튼은 정답만 보여줍니다. 다음 문제로 이동하려면 '다음 문제' 버튼을 누르세요.</small>
+  </div>
+
+<script>
+  // 기존 문제 데이터
+  const questions = [
+    { q: "유방암 수술 도중 손상받기 쉬운 신경은?", a: "Long thoracic nerve, thoracodorsal nerve, pectoral nerve, intercostobrachial nerve" },
+    { q: "(삐 소리나는 네비게이터를 겨드랑이 쪽에 대보시면서)뭐 찾는거야?", a: "감시림프절(Sentinel LN) - Sentinel LN 찾아 생검하기 위해서 방사성동위원소를 수술 전 주입하여, 수술 중 navigator 사용해 동위원소 섭취가 높은 LN을 찾아낸다." },
+    { q: "(겨드랑이쪽 절개하고 림프절을 떼시며)지금 뭐하고 있는 거야?", a: "Sentinel lymph node dissection" },
+    { q: "Sentinel LN을 찾는 방법은?", a: "방사성 동위원소를 주입하고 네비게이터를 겨드랑이에 대 찾는 lymphoscintigraphy와, 파란색 염료를 주입해서 파란색을 띄는 LN만 제거하는 방법이 있다. 그러나 파란색 염료를 주입하는 방법은 피부가 새파랗게 되기 때문에 요즘은 거의 안 쓰인다." },
+    { q: "회진 때 thyroid surgery 환자들에게서 잘 관찰해야 하는 것은?", a: "수술 부위가 붓고 호흡이 어려운지 보아야 한다." },
+    { q: "Thyroid surgery 후 수술 부위가 부었고 호흡이 어렵다면 가장 먼저 무엇을 고려해야 할까?", a: "Hematoma" },
+    { q: "Thyroid surgery 후 수술 부위에 hematoma가 발생하였고, 환자가 dyspnea를 호소한다면 어떻게 해줘야 할까?", a: "환자가 dyspnea를 호소하므로 그 자리에서 바로 절개 후 혈종 제거한다." },
+    { q: "Thyroid surgery 후 수술 부위가 부어있지는 않은데 호흡이 어렵다면?", a: "Bilateral vocal cord palsy를 의심한다." },
+    { q: "Vocal cord palsy는 어떻게 확인해?", a: "Laryngoscope" },
+    { q: "Vocal cord palsy임이 확인되었다면 치료는 어떻게 하는가?", a: "Tracheostomy" },
+    { q: "유방 MRI는 어떤 자세로 찍어?", a: "엎드린 자세로 찍는다." },
+    { q: "유방암 수술 후 보조적인 치료에는 뭐가 있지?", a: "항암치료, 방사선치료, 호르몬치료, 표적치료" },
+    { q: "호르몬 치료에서 폐경 전 여성이면 타목시펜을 쓰는데, 폐경이 된 여성이면 무엇을 쓸까?", a: "Aromatase inhibitor - Aromatase는 여성에게 있는 남성호르몬을 여성호르몬을 바꾸는 역할을 하는데, 이를 막아서 여성호르몬이 아예 만들어지지 않게 한다. 추가적으로 요즘은 zoladex라는 GnRH agonist도 병용해서 많이 사용한다." },
+    { q: "유방암에서 감시림프절이 가장 많이 발견되는 림프절 그룹은?", a: "External mammary group" },
+    { q: "Parathyroid에 문제가 있으면 어디에 이식해?", a: "Brachioradialis muscle에 이식한다. 문제가 발생할 경우 쉽게 제거하기 위해서이다. <br>SCM에 이식하면 다시 목을 절개해야 하기 때문에 쉬운 제거를 위해 팔에 이식한다. 팔 외에도 복근이나 다른 근육에 이식할 수 있지만 상완요골근은 근복이 두텁기 때문에 이곳에 한다. <br>하지만 수술 중에 실수로 절단된 parathyroid는 기능 자체에 문제가 있지는 않기 때문에 SCM에 이식한다. <br>Brachioradialis 중에서는 nondominant한 side에, 투석하는 환자의 경우에는 투석하는 팔의 반대쪽에 이식한다." },
+    { q: "Thyroid 수술에서 조심해야 할 신경이 뭐가 있지?", a: "Recurrent laryngeal nerve, superior laryngeal nerve" },
+    { q: "유방암 수술 시 조심해야 할 신경들은? 그 신경들이 각각 어떤 근육을 지배해서 어떤 문제가 생겨?", a: "Long thoracic nerve - Serratus anterior - Winged scapula <br>Thoracodorsal nerve - Latissimus dorsi - Internal rotation 장애 <br>Pectoral nerve - Pectoralis muscle - Pectoralis muscle의 위축 <br>Intercostobrachial nerve - 감각신경이므로 근육 지배하지 않음 - 감각이상" },
+    { q: "갑상선 수술에서 중요한 신경 및 손상 시 문제는?", a: "Recurrent laryngeal nerve - 손상 받으면 쉰 목소리가 남 <br>Superior laryngeal nerve - 손상 받으면 고음불가" },
+    { q: "(수술 중 trachea 뒤의 구조물을 가리키며)이게 뭐야?", a: "Trachea 뒤에는 esophagus가 위치한다고 하심." },
+    { q: "체내 Ca2+ 농도가 부족하면 무슨 현상이 나타나?", a: "Chvostek's sign - 얼굴을 치면 찌릿찌릿한 것 <br>Trousseau's sign - 혈압계를 감았을 때 손이 꼬아지는 것" },
+    { q: "Parathyroid gland가 우리 몸에 어떤 작용을 하는가?", a: "PTH를 분비하여 체내 칼슘 농도를 높인다." },
+    { q: "PTH가 체내 칼슘 농도를 높이는 기전은?", a: "뼈에서 칼슘이 빠져나오게 하고, 신장에서 칼슘 흡수를 돕는다." },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" },
+    { q: "", a: "" }
+  ];
+
+  const KEY = {
+    WRONG: 'quiz_wrong_v1',
+    MODE: 'quiz_mode_v1',
+    NORMAL_ORDER: 'quiz_normal_order_v1',
+    NORMAL_IDX: 'quiz_normal_idx_v1',
+    REVIEW_ORDER: 'quiz_review_order_v1',
+    REVIEW_IDX: 'quiz_review_idx_v1'
+  };
+
+  let wrongList   = JSON.parse(localStorage.getItem(KEY.WRONG) || '[]');
+  let mode        = localStorage.getItem(KEY.MODE) || 'normal';
+  let orderNormal = JSON.parse(localStorage.getItem(KEY.NORMAL_ORDER) || 'null');
+  let idxNormal   = parseInt(localStorage.getItem(KEY.NORMAL_IDX) || '0', 10);
+  let orderReview = JSON.parse(localStorage.getItem(KEY.REVIEW_ORDER) || 'null');
+  let idxReview   = parseInt(localStorage.getItem(KEY.REVIEW_IDX) || '0', 10);
+
+  const elStatus          = document.getElementById('status');
+  const elQuestion        = document.getElementById('question');
+  const elAnswer          = document.getElementById('answer');
+  const elBtnShow         = document.getElementById('btnShowAnswer');
+  const elBtnWrong        = document.getElementById('btnMarkWrong');
+  const elBtnNext         = document.getElementById('btnNext');
+  const elBtnPrev         = document.getElementById('btnPrev');
+  const elBtnToggle       = document.getElementById('btnToggleMode');
+  const elBtnReset        = document.getElementById('btnReset');
+  const elProgressInfo    = document.getElementById('progressInfo');
+  const elProgressInner   = document.getElementById('progressInner');
+  const elBtnRestartReview= document.getElementById('btnRestartReview');
+  const elBtnRemoveWrong  = document.getElementById('btnRemoveWrong');
+
+  function shuffledArray(n){
+    const arr = Array.from({length:n}, (_,i)=>i);
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function saveAll(){
+    localStorage.setItem(KEY.WRONG, JSON.stringify(wrongList));
+    localStorage.setItem(KEY.MODE, mode);
+    if(orderNormal) localStorage.setItem(KEY.NORMAL_ORDER, JSON.stringify(orderNormal));
+    localStorage.setItem(KEY.NORMAL_IDX, String(idxNormal));
+    if(orderReview) localStorage.setItem(KEY.REVIEW_ORDER, JSON.stringify(orderReview));
+    localStorage.setItem(KEY.REVIEW_IDX, String(idxReview));
+  }
+
+  function clearAll(){
+    localStorage.removeItem(KEY.WRONG);
+    localStorage.removeItem(KEY.MODE);
+    localStorage.removeItem(KEY.NORMAL_ORDER);
+    localStorage.removeItem(KEY.NORMAL_IDX);
+    localStorage.removeItem(KEY.REVIEW_ORDER);
+    localStorage.removeItem(KEY.REVIEW_IDX);
+    wrongList = [];
+    mode = 'normal';
+    orderNormal=null; orderReview=null;
+    idxNormal=0; idxReview=0;
+  }
+
+  function ensureOrders(skipShuffle=false){
+    // ✅ 일반 모드 순서 보장 (기본: 처음 한 번 섞고 고정)
+    if(!Array.isArray(orderNormal) || orderNormal.length !== questions.length){
+      orderNormal = Array.from({length: questions.length}, (_,i)=>i);
+      if(!skipShuffle){
+        orderNormal.sort(()=>Math.random()-0.5);
+      }
+    }
+
+    // ✅ 복습 모드 순서 보장
+    if(!Array.isArray(orderReview) || orderReview.length !== wrongList.length){
+      orderReview = Array.from({length: wrongList.length}, (_,i)=>i);
+    }
+
+    // ✅ 인덱스 보정
+    idxNormal = Math.min(Math.max(0, idxNormal), Math.max(0, orderNormal.length-1));
+    idxReview = Math.min(Math.max(0, idxReview), Math.max(0, wrongList.length-1));
+  }
+
+  function currentListAndIndex(){
+    if(mode==='normal'){
+      return {listType:'normal', order:orderNormal, idx:idxNormal, total:orderNormal.length};
+    } else {
+      return {listType:'review', order:orderReview, idx:idxReview, total:orderReview.length};
+    }
+  }
+
+  function getCurrentQuestion(){
+    const info = currentListAndIndex();
+    if(info.total===0) return null;
+    if(info.listType==='normal'){
+      return questions[info.order[info.idx]];
+    } else {
+      return wrongList[info.order[info.idx]];
+    }
+  }
+
+  function updateProgressBar(idx,total,percent){
+    elProgressInfo.innerText=`진행: ${idx}/${total}  (${percent}%)`;
+    elProgressInner.style.width=total===0?'0%':`${percent}%`;
+  }
+
+  function updateToggleText(){
+    elBtnToggle.textContent = mode==='normal'?`복습 모드 (${wrongList.length})`:'일반 모드로';
+  }
+
+  function render(skipShuffle=false){
+    ensureOrders(skipShuffle);
+    saveAll();
+    const info=currentListAndIndex();
+
+    // 버튼 표시
+    if(mode==='review' && info.total>0){
+      elBtnRestartReview.style.display='inline-block';
+      elBtnRemoveWrong.style.display='inline-block';
+    } else {
+      elBtnRestartReview.style.display='none';
+      elBtnRemoveWrong.style.display='none';
+    }
+
+    if(info.total===0){
+      elStatus.innerText = mode==='normal'? '문제가 비어있습니다. questions 배열을 채워주세요.' : '복습할 문제가 없습니다.';
+      elQuestion.innerText = mode==='normal'? '문제가 없습니다.' : '복습할 문제가 없습니다.';
+      elAnswer.style.display='none';
+      updateProgressBar(0,info.total,0);
+      updateToggleText();
+      return;
+    }
+
+    // 완료 상태
+    if(info.idx >= info.total){
+      elQuestion.innerText='모든 문제가 완료되었습니다.';
+      elAnswer.style.display='none';
+      updateProgressBar(info.total, info.total, 100);
+      updateToggleText();
+      return;
+    }
+
+    const cur = getCurrentQuestion();
+    if(!cur){
+      elQuestion.innerText='문제가 없습니다.';
+      elAnswer.style.display='none';
+      updateProgressBar(info.idx,info.total,Math.round((info.idx/Math.max(1,info.total))*100));
+      updateToggleText();
+      return;
+    }
+
+    elQuestion.innerHTML = cur.q;
+    elAnswer.innerHTML = cur.a;
+    elAnswer.style.display='none';
+
+    const currentNumber=info.idx+1;
+    const remaining=Math.max(0,info.total-info.idx-1);
+    elStatus.innerText=`모드: ${mode==='normal'?'일반':'복습'}  •  ${currentNumber} / ${info.total}  (남음: ${remaining})`;
+    updateProgressBar(info.idx, info.total, Math.round((info.idx/Math.max(1,info.total))*100));
+    updateToggleText();
+  }
+
+  function showAnswer(){
+    const cur = getCurrentQuestion();
+    if(!cur) return;
+    elAnswer.style.display='block';
+  }
+
+  function markWrong(){
+    const info=currentListAndIndex();
+    if(info.total===0 || info.idx>=info.total) return;
+    const cur=getCurrentQuestion();
+    if(!cur) return;
+    if(!wrongList.some(it=>it.q===cur.q && it.a===cur.a)){
+      wrongList.push({q:cur.q,a:cur.a});
+      orderReview = Array.from({length: wrongList.length}, (_,i)=>i); // 새로 고정
+      idxReview=Math.min(idxReview, orderReview.length-1);
+      saveAll();
+      updateToggleText();
+    }
+  }
+
+  function removeWrong(){
+    const cur = getCurrentQuestion();
+    if(!cur) return;
+    if(removeFromWrongListByQA(cur.q, cur.a)){
+      render();
+    }
+  }
+
+  function nextQuestion(){
+    const info=currentListAndIndex();
+    if(info.total===0){ render(); return; }
+    if(info.listType==='normal'){
+      idxNormal++;
+      if(idxNormal>info.total) idxNormal=info.total;
+    } else {
+      idxReview++;
+      if(idxReview>info.total) idxReview=info.total;
+    }
+    saveAll();
+    render();
+  }
+
+  function prevQuestion(){
+    const info=currentListAndIndex();
+    if(info.total===0){ render(); return; }
+    if(info.listType==='normal'){
+      if(idxNormal<=0) return;
+      idxNormal = Math.max(0, idxNormal-1);
+      const prev = questions[orderNormal[idxNormal]];
+      if(prev) removeFromWrongListByQA(prev.q,prev.a);
+    } else {
+      if(idxReview<=0) return;
+      idxReview=Math.max(0, idxReview-1);
+    }
+    saveAll();
+    render();
+  }
+
+  function removeFromWrongListByQA(q,a){
+    const i = wrongList.findIndex(it => it.q === q && it.a === a);
+    if(i!==-1){
+      wrongList.splice(i,1);
+      // 순서 재구성 및 인덱스 보정
+      orderReview = Array.from({length: wrongList.length}, (_,k)=>k);
+      if(idxReview >= wrongList.length){
+        idxReview = Math.max(0, wrongList.length - 1);
+      }
+      saveAll();
+      updateToggleText();
+      return true;
+    }
+    return false;
+  }
+
+  function restartReview(){
+    idxReview=0;
+    saveAll();
+    render();
+  }
+
+  function toggleMode(){
+    mode = (mode==='normal')?'review':'normal';
+    localStorage.setItem(KEY.MODE, mode);
+    if(mode==='review' && wrongList.length===0){
+      alert('복습할 오답이 없습니다.');
+      mode='normal';
+      localStorage.setItem(KEY.MODE, mode);
+      return;
+    }
+    ensureOrders();
+    render();
+  }
+
+  function resetProgress(){
+    if(!confirm('진행 상황(섞인 순서 및 인덱스)과 오답 목록을 초기화할까요?')) return;
+    clearAll();
+    ensureOrders();
+    saveAll();
+    render();
+  }
+
+  elBtnShow.addEventListener('click', showAnswer);
+  elBtnWrong.addEventListener('click', markWrong);
+  elBtnNext.addEventListener('click', nextQuestion);
+  elBtnPrev.addEventListener('click', prevQuestion);
+  elBtnToggle.addEventListener('click', toggleMode);
+  elBtnReset.addEventListener('click', resetProgress);
+  elBtnRestartReview.addEventListener('click', restartReview);
+  elBtnRemoveWrong.addEventListener('click', removeWrong);
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js?v=5').catch(e=>{
+        console.warn('ServiceWorker 등록 실패:', e);
+      });
+    });
+  }
+
+  ensureOrders();
+  render();
+</script>
+</body>
+</html>
